@@ -108,3 +108,56 @@ func UpdateFollowsRules(rules []PageRule, update []int) bool {
 	}
 	return true
 }
+
+func GetRequiresList(rules []PageRule) map[int][]int {
+	requires := map[int][]int{}
+	for _, rule := range rules {
+		if len(rule) != 2 {
+			log.Fatalf("invalid rule: %v", rule)
+		}
+		if _, ok := requires[rule[1]]; !ok {
+			requires[rule[1]] = []int{}
+		}
+		requires[rule[1]] = append(requires[rule[1]], rule[0])
+	}
+	return requires
+}
+
+func Compare(a int, b int, update []int, requireslist map[int][]int) int {
+
+	// bfs for b in a's deps
+	adeps := requireslist[a]
+	for len(adeps) > 0 {
+		thisdep := adeps[0]
+		if thisdep == b {
+			return 1
+		}
+		adeps = adeps[1:]
+		adeps = append(adeps, requireslist[thisdep]...)
+	}
+
+	// bfs for a in b's deps
+	bdeps := requireslist[b]
+	for len(bdeps) > 0 {
+		thisdep := bdeps[0]
+		if thisdep == a {
+			return -1
+		}
+		bdeps = bdeps[1:]
+		bdeps = append(bdeps, requireslist[thisdep]...)
+	}
+	return 0
+}
+
+func ReorderToFollowRules(rules []PageRule, update []int) []int {
+	reordered := make([]int, len(update))
+
+	updateset := map[int]struct{}{}
+	for _, v := range update {
+		updateset[v] = struct{}{}
+	}
+
+	fmt.Printf("validating rules: %v for update: %v\n", rules, update)
+
+	return reordered
+}
