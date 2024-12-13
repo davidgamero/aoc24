@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-type PageRule []int
+type PageRule []int // rule of [a, b] where a must come before b in update
 
 func main() {
 	file, err := os.Open("input.txt")
@@ -66,7 +66,7 @@ func main() {
 	validUpdates := [][]int{}
 	invalidUpdates := [][]int{}
 	for _, update := range updates {
-		if UpdateFollowsRules(pageRules, update) {
+		if ValidateUpdate(pageRules, update) {
 			validUpdates = append(validUpdates, update)
 		} else {
 			invalidUpdates = append(invalidUpdates, update)
@@ -80,9 +80,20 @@ func main() {
 	}
 
 	fmt.Println("p1: ", middleSum)
+
+	p2MiddleSum := 0
+	for _, update := range invalidUpdates {
+		orderedUpdate := SortUpdate(pageRules, update)
+		if !ValidateUpdate(pageRules, orderedUpdate) {
+			panic("invalid update after sorting")
+		}
+		p2MiddleSum += orderedUpdate[(len(orderedUpdate) / 2)]
+	}
+
+	fmt.Println("p2: ", p2MiddleSum)
 }
 
-func UpdateFollowsRules(rules []PageRule, update []int) bool {
+func ValidateUpdate(rules []PageRule, update []int) bool {
 	page2i := map[int]int{}
 	for i, v := range update {
 		page2i[v] = i
@@ -109,7 +120,9 @@ func UpdateFollowsRules(rules []PageRule, update []int) bool {
 	return true
 }
 
-func GetRequiresList(rules []PageRule) map[int][]int {
+// Get map of int a to []int that must be present before a in an update
+// *non recursive*
+func BuildRequiresList(rules []PageRule) map[int][]int {
 	requires := map[int][]int{}
 	for _, rule := range rules {
 		if len(rule) != 2 {
@@ -123,41 +136,66 @@ func GetRequiresList(rules []PageRule) map[int][]int {
 	return requires
 }
 
-func Compare(a int, b int, update []int, requireslist map[int][]int) int {
+// Get list of ints required before a page
+// *recursive*
+func GetRequiredPages(a int, requiresList map[int][]int, required []int, requiredcontains map[int]bool, updatecontains map[int]bool) ([]int, map[int]bool) {
 
-	// bfs for b in a's deps
-	adeps := requireslist[a]
-	for len(adeps) > 0 {
-		thisdep := adeps[0]
-		if thisdep == b {
-			return 1
-		}
-		adeps = adeps[1:]
-		adeps = append(adeps, requireslist[thisdep]...)
-	}
+	//fmt.Println("a = ", a)
+	reqlist := requiresList[a]
+	//fmt.Printf("reqlist[%d]= %v\n", a, reqlist)
 
-	// bfs for a in b's deps
-	bdeps := requireslist[b]
-	for len(bdeps) > 0 {
-		thisdep := bdeps[0]
-		if thisdep == a {
-			return -1
+	for _, dep := range reqlist {
+		//fmt.Println("dep = ", dep)
+		if requiredcontains[dep] {
+			continue
 		}
-		bdeps = bdeps[1:]
-		bdeps = append(bdeps, requireslist[thisdep]...)
+		if !updatecontains[dep] {
+			continue
+		}
+		required, requiredcontains = GetRequiredPages(dep, requiresList, required, requiredcontains, updatecontains)
+
 	}
-	return 0
+	if !requiredcontains[a] {
+		//fmt.Printf("appending %d to required\n", a)
+		required = append(required, a)
+		requiredcontains[a] = true
+	} else {
+		fmt.Printf("skipping appending %d as required already has it required=%v reqcontains=%v\n", a, required, requiredcontains)
+	}
+	fmt.Printf("required a=%d %v\n", a, required)
+	return required, requiredcontains
 }
 
-func ReorderToFollowRules(rules []PageRule, update []int) []int {
-	reordered := make([]int, len(update))
-
-	updateset := map[int]struct{}{}
+func Contains(update []int, i int) bool {
 	for _, v := range update {
-		updateset[v] = struct{}{}
+		if i == v {
+			return true
+		}
+	}
+	return false
+}
+
+func SortUpdate(rules []PageRule, update []int) []int {
+
+	reqlist := BuildRequiresList(rules)
+	updatecontains := map[int]bool{}
+
+	for _, v := range update {
+		updatecontains[v] = true
 	}
 
-	fmt.Printf("validating rules: %v for update: %v\n", rules, update)
+	sorted := []int{}
+	for _, i := range update {
+		irequired, _ := GetRequiredPages(i, reqlist, sorted, map[int]bool{}, updatecontains)
+		for _, j := range irequired {
+			if !Contains(sorted, j) && Contains(update, j) {
+				sorted = append(sorted, j)
+			}
+		}
+	}
 
-	return reordered
+	if !ValidateUpdate(rules, sorted) {
+		panic("failed validation on sorted")
+	}
+	return sorted
 }
