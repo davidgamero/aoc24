@@ -25,6 +25,11 @@ type Position struct {
 	Y int // row, going down
 }
 
+type PositionWithDirection struct {
+	Position
+	Direction Direction
+}
+
 type Guard struct {
 	Position
 	direction Direction
@@ -32,13 +37,13 @@ type Guard struct {
 	Visited map[Position]bool
 }
 
-func NewGuard(x int, y int, d Direction) Guard {
+func NewGuard(p Position, d Direction) Guard {
 	g := Guard{
-		Position:  Position{x, y},
+		Position:  p,
 		direction: UP,
 		Visited:   map[Position]bool{},
 	}
-	g.Visit(Position{x, y})
+	g.Visit(p)
 	return g
 }
 
@@ -81,22 +86,84 @@ func main() {
 	lines := strings.Split(string(dat), "\n")
 	fmt.Printf("read %d lines\n", len(lines))
 
-	g := GuardSim(lines)
+	g, _, err := GuardSim(lines)
+	if err != nil {
+		panic(err)
+	}
 	fmt.Printf("spaces visited: %d\n", len(g.Visited))
+
+	loopplacements := 0
+	gstart, err := GetGuardPosition(lines)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("checking %d potential object positions\n", len(g.Visited))
+	potentialpositioncount := len(g.Visited)
+	donecount := 0
+	for p := range g.Visited {
+		if p == gstart {
+			fmt.Printf(" %d skipping %v\n", donecount*100/potentialpositioncount, p)
+			continue
+		}
+		fmt.Printf(" %d testing %v\n", (donecount*100)/potentialpositioncount, p)
+		lineswithobject := InsertItem(lines, p)
+		_, isloop, err := GuardSim(lineswithobject)
+		if err != nil {
+			panic(err)
+		}
+		if isloop {
+			loopplacements += 1
+		}
+		donecount += 1
+	}
+
+	fmt.Printf("places that make a loop: %d\n", loopplacements)
 }
 
-func GuardSim(lines []string) Guard {
-	var guard Guard
+func InsertItem(lines []string, p Position) []string {
+	newlines := []string{}
+	for y := range lines {
+		l := ""
+		for x := range len(lines[y]) {
+			if x == p.X && y == p.Y {
+				l = l + "O"
+			} else {
+				l = l + string(lines[y][x])
+			}
+		}
+		newlines = append(newlines, l)
+	}
+	return newlines
+}
+
+func GetGuardPosition(lines []string) (Position, error) {
 	for y := range len(lines) {
 		for x := range len(lines[y]) {
 			if lines[y][x] == '^' {
-				guard = NewGuard(x, y, UP)
+				return Position{X: x, Y: y}, nil
 			}
 		}
 	}
+	return Position{}, fmt.Errorf("guard not found in lines")
+}
 
-	guard.Visit(guard.Position)
+// run simulation, returns Guard, loops
+func GuardSim(lines []string) (Guard, bool, error) {
+	var guard Guard
 
+	pos, err := GetGuardPosition(lines)
+	if err != nil {
+		return guard, false, fmt.Errorf("getting guard position: %w", err)
+	}
+	guard = NewGuard(pos, UP)
+
+	looping := map[PositionWithDirection]bool{
+		{
+			Position:  guard.Position,
+			Direction: guard.direction,
+		}: true,
+	}
 	for {
 		var nextPosition Position
 		switch guard.direction {
@@ -139,10 +206,17 @@ func GuardSim(lines []string) Guard {
 		case '.':
 			guard.Visit(nextPosition)
 			guard.Position = nextPosition
+		case 'O':
+			fallthrough // user-placed object
 		case '#':
 			guard.direction = turnright[guard.direction]
 		}
+
+		if looping[PositionWithDirection{Position: guard.Position, Direction: guard.direction}] {
+			return guard, true, nil
+		}
+		looping[PositionWithDirection{Position: guard.Position, Direction: guard.direction}] = true
 	}
 
-	return guard
+	return guard, false, nil
 }
