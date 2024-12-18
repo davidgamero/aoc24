@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -45,22 +46,31 @@ func line2eq(line string) (Equation, error) {
 	}, nil
 }
 
-func CanBeCreated(e Equation) (bool, error) {
+func Concat(a int, b int) int {
+	bdigits := len(strconv.Itoa(b))
+	return (a * int(math.Pow10(bdigits))) + b
+}
+
+func CanBeCreated(e Equation, withConcat bool) (bool, error) {
 	values := map[int]bool{e.Sequence[0]: true} // the values the operation could take at this point
 
-	fmt.Printf("testing %v\n", e)
-	for _, i := range e.Sequence[1:] {
-		fmt.Printf("  values: %v\n", values)
+	//fmt.Printf("testing %v\n", e)
+	for _, nextnumberinsequence := range e.Sequence[1:] {
+		//fmt.Printf("  values: %v\n", values)
 		newpotentialvalues := map[int]bool{}
 
-		for v := range values {
-			addvalue := i + v
+		for currentvalue := range values {
+			addvalue := nextnumberinsequence + currentvalue
 			if addvalue <= e.Result {
 				newpotentialvalues[addvalue] = true
 			}
-			multvalue := i * v
+			multvalue := nextnumberinsequence * currentvalue
 			if multvalue <= e.Result {
 				newpotentialvalues[multvalue] = true
+			}
+			concatvalue := Concat(currentvalue, nextnumberinsequence)
+			if withConcat && concatvalue <= e.Result {
+				newpotentialvalues[concatvalue] = true
 			}
 		}
 		if len(newpotentialvalues) == 0 {
@@ -94,14 +104,20 @@ func main() {
 	fmt.Printf("loaded %d equations from %d lines\n", len(equations), len(lines))
 
 	totalcalibrationresult := 0
+	totalcalibrationresultconcat := 0
 	for _, e := range equations {
-		possible, err := CanBeCreated(e)
+		possible, err := CanBeCreated(e, false)
+		possiblewithconcat, err := CanBeCreated(e, true)
 		if err != nil {
 			panic(err)
 		}
 		if possible {
 			totalcalibrationresult += e.Result
 		}
+		if possiblewithconcat {
+			totalcalibrationresultconcat += e.Result
+		}
 	}
 	fmt.Printf("p1 total calibration result: %d\n", totalcalibrationresult)
+	fmt.Printf("p2 total calibration result: %d\n", totalcalibrationresultconcat)
 }
