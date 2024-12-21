@@ -104,29 +104,29 @@ func CompactWholeFiles(expandedMap []int) []int {
 	//movedIDs := map[int]bool{}
 	for iBlockRead := len(expandedMap) - 1; iBlockRead > 0; iBlockRead -= 1 {
 		blockLen += 1
-		fmt.Println("iBlockRead=", iBlockRead, " blockLen=", blockLen)
+		//	fmt.Println("iBlockRead=", iBlockRead, " blockLen=", blockLen)
 		isBlockStart := expandedMap[iBlockRead-1] != expandedMap[iBlockRead] && expandedMap[iBlockRead] != EMPTYID
-		if expandedMap[iBlockRead-1] != expandedMap[iBlockRead] {
+		if iBlockRead+1 < len(expandedMap) && expandedMap[iBlockRead+1] != expandedMap[iBlockRead] {
 			blockLen = 1
 		}
 
 		if !isBlockStart {
-			fmt.Println(" not block start, continuing [iBlockRead-1:]=", expandedMap[iBlockRead-1:])
+			//fmt.Println(" not block start, continuing [iBlockRead-1:]=", expandedMap[iBlockRead-1:])
 			continue
 		}
-		fmt.Println(" block start at i=", iBlockRead, " for fileID=", expandedMap[iBlockRead], " with blocklen=", blockLen)
+		//	fmt.Println(" block start at i=", iBlockRead, " for fileID=", expandedMap[iBlockRead], " with blocklen=", blockLen)
 		// is block start, attempt placement
 		iPlacementTarget, ok := GetFirstEmptySpace(compactedMap, blockLen)
 		if ok && iPlacementTarget < iBlockRead {
 			// swap with target
-			fmt.Println("  swapping found empty space at i=", iPlacementTarget, " for blocklen=", blockLen)
+			//		fmt.Println("  swapping found empty space at i=", iPlacementTarget, " for blocklen=", blockLen)
 			swapped, err := SwapLen(compactedMap, iPlacementTarget, iBlockRead, blockLen)
 			if err != nil {
 				panic(err)
 			}
 			compactedMap = swapped
 		}
-		fmt.Println(compactedMap)
+		//	fmt.Println(compactedMap)
 		blockLen = 0
 	}
 	return compactedMap
@@ -164,4 +164,9 @@ func main() {
 	checksum, err := GetChecksum(compactedMap)
 
 	fmt.Printf("p1 checksum: %d\n", checksum)
+
+	wholeFiles := CompactWholeFiles(expandedMap)
+
+	checksum, err = GetChecksum(wholeFiles)
+	fmt.Printf("p2 checksum: %d\n", checksum)
 }
