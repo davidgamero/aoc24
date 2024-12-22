@@ -56,6 +56,30 @@ func GetTrailHeadSummits(lines []string, row, col, targetElevation int) Position
 	return summits
 }
 
+func GetTrailHeadRating(lines []string, row, col, targetElevation int) int {
+	rating := 0
+	// zero value if we are outside the map
+	if row < 0 || col < 0 || row >= len(lines) || col >= len(lines[row]) {
+		return rating
+	}
+	currentElevation, err := strconv.Atoi(string(lines[row][col]))
+	if err != nil {
+		panic(err)
+	}
+	if currentElevation != targetElevation {
+		return rating
+	}
+	if currentElevation == 9 {
+		return 1
+	}
+
+	rating += GetTrailHeadRating(lines, row+1, col, targetElevation+1)
+	rating += GetTrailHeadRating(lines, row-1, col, targetElevation+1)
+	rating += GetTrailHeadRating(lines, row, col+1, targetElevation+1)
+	rating += GetTrailHeadRating(lines, row, col-1, targetElevation+1)
+	return rating
+}
+
 func main() {
 	data, err := os.ReadFile("input.txt")
 	if err != nil {
@@ -65,6 +89,7 @@ func main() {
 	lines := strings.Split(string(data), "\n")
 
 	totalScore := 0
+	totalRating := 0
 	scores := [][]int{}
 	for row, line := range lines {
 		lineScores := []int{}
@@ -72,10 +97,13 @@ func main() {
 			summmits := GetTrailHeadSummits(lines, row, col, 0)
 			lineScore := len(summmits)
 			totalScore += lineScore
+
+			totalRating += GetTrailHeadRating(lines, row, col, 0)
 		}
 		scores = append(scores, lineScores)
 	}
 	fmt.Println("")
 	fmt.Printf("p1 total: %d\n", totalScore)
+	fmt.Printf("p2 total: %d\n", totalRating)
 
 }
